@@ -2,20 +2,20 @@
 
 Minimal Scala 3 implementation of section 5 of the manuscript:
 
-- the multi-level domain (8), the parameter and model tuples (9)–(10);
-- the implicit context IC = ⟨Θ, A_txt⟩ with the numeric context check (11) and the combination of contexts at step 6;
+- the multi-level domain (8), the parameter and model tuples (9), (12);
+- the implicit context IC = ⟨Θ, A_txt⟩ (10) with the numeric context check (11) and the combination of contexts at step 6;
 - the consistency conditions (2), (3), (4), (5), (6); (5) is computed exactly for each implementation type,
   not sampled on a grid, and binary64 is bounded by half an ulp rather than treated as exact;
-- the reconciliation checks (14)–(16) for any number of models and the sequential check (17) per level of the
-  downstream input, with the model error δ and the preimage D'.
+- the reconciliation checks (15)–(17) for any number of models and the sequential check (19) per level of the
+  downstream input, with the model error δ and the preimage X'.
 
 Every condition returns a three-valued verdict: `Holds`, `Violated` or `NotCheckable`. A level that was never
 recorded (`Domain.domC = None`, as for reused code where only the expression and the type are known) is
 `NotCheckable`, not satisfied. A sequential link is `Violated` if any level is violated, `NotCheckable` if any level
-cannot be checked, `Conditional` if (17) holds but no estimate of δ was given (δ = 0 is then assumed), and
+cannot be checked, `Conditional` if (19) holds but no estimate of δ was given (δ = 0 is then assumed), and
 `Compatible` otherwise.
 
-The tests recompute every number of the worked example in section 5.4 (Table 3), the accumulated-error check (6)
+The tests recompute every number of the worked example in section 5.4 (Table 4), the accumulated-error check (6)
 for the Patriot clock, the Ariane 5 link and the verdict rules above.
 
 The sources live in `src/`: `Domain.scala` holds the levels, the tuples, the contexts and the checks of
@@ -28,7 +28,7 @@ scala-cli test .                                 # 23 tests
 ```
 
 Limits: this is an arithmetic demonstrator, not a toolchain component. A model has one input and one output; domains
-are one-dimensional intervals; the interval extension is exact only for functions monotone on D (the example's
+are one-dimensional intervals; the interval extension is exact only for functions monotone on X (the example's
 case), and a general [f] would need interval arithmetic or subdivision; there is no FMI or SSP import. Integer types
 round to nearest and fixed point chops. Text assumptions A_txt are stored, not checked.
 

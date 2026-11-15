@@ -18,7 +18,7 @@ final case class Interval(lo: Double, hi: Double, loOpen: Boolean = false, hiOpe
     }
   def contains(x: Double): Boolean =
     (if loOpen then lo < x else lo <= x) && (if hiOpen then x < hi else x <= hi)
-  /** [lo − δ, hi + δ]: the image widened by the model error δ ≥ 0, see (17). */
+  /** [lo − δ, hi + δ]: the image widened by the model error δ ≥ 0, see (19). */
   def widen(delta: Double): Interval = copy(lo = lo - delta, hi = hi + delta)
   override def toString: String =
     if isEmpty then "∅" else f"${if loOpen then "(" else "["}$lo%.4g, $hi%.4g${if hiOpen then ")" else "]"}"
@@ -38,7 +38,7 @@ object Dim:
   val Density: Dim = Dim(l = -3, m = 1)
   val None: Dim = Dim()
 
-/** Unit U = ⟨u, dim⟩ (7) with an affine map to the coherent SI unit: x_SI = k·x + b. */
+/** Unit U = ⟨u, α⟩ (7), α the dimension, with an affine map to the coherent SI unit: x_SI = k·x + b. */
 final case class Unit(symbol: String, dim: Dim, k: Double = 1.0, b: Double = 0.0):
   def toSI(x: Double): Double = k * x + b
   def fromSI(x: Double): Double = (x - b) / k
@@ -68,7 +68,7 @@ enum ImplType:
   case FixedPoint(bits: Int, fractionBits: Int, signed: Boolean = false)
   case Float64
 
-  /** Bounds of Dom_I, used by condition (4) and the third inclusion of (17). */
+  /** Bounds of Dom_I, used by condition (4) and the third inclusion of (19). */
   def range: Interval = this match
     case IntType(bits, true)  => Interval(-math.pow(2, bits - 1), math.pow(2, bits - 1) - 1)
     case IntType(bits, false) => Interval(0, math.pow(2, bits) - 1)
@@ -122,7 +122,7 @@ object Domain:
 
 /** Parameter P = ⟨N, D, U, Dom, S⟩ (9). */
 final case class Param(n: String, d: String, u: Unit, dom: Domain, s: Scale = Scale.Linear):
-  /** Dom_C expressed in another unit of the same dimension, step 2 and formula (12). */
+  /** Dom_C expressed in another unit of the same dimension, step 2 and formula (13). */
   def ctxIn(target: Unit): Interval =
     require(u.dim == target.dim, s"$n: dimension ${u.dim} is not ${target.dim}")
     val c = dom.domC.getOrElse(throw IllegalArgumentException(s"$n: Dom_C is not recorded"))
@@ -160,17 +160,17 @@ object Context:
   final case class Combined(ic: Context, conflicts: Seq[String])
   def text(assumptions: String*): Context = Context(Nil, assumptions.toSet)
 
-/** Model M = ⟨f, {P_i}, {R_j}, IC, D, A⟩ (10), one input and one output are enough here. */
+/** Model M = ⟨f, {P_i}, {R_j}, IC, D, Au⟩ (12), one input and one output are enough here. */
 final case class Model(name: String, in: Param, out: Option[Param], ic: Context, d: String, a: String)
 
 enum Overlap:
   case Inclusion, Partial, Incompatible
 
-/** Status of a sequential link. Conditional: (17) holds, but δ was not estimated and 0 was assumed. */
+/** Status of a sequential link. Conditional: (19) holds, but δ was not estimated and 0 was assumed. */
 enum LinkStatus:
   case Compatible, Conditional, NotCheckable, Violated
 
-/** Verdict of (17) per level of the downstream input: which inclusion holds. */
+/** Verdict of (19) per level of the downstream input: which inclusion holds. */
 final case class LinkCheck(image: Interval, math: Verdict, ctx: Verdict, impl: Verdict, deltaKnown: Boolean):
   def levels: Seq[Verdict] = Seq(math, ctx, impl)
   /** A violated level decides; a link with an unchecked level is never marked compatible. */
@@ -181,39 +181,39 @@ final case class LinkCheck(image: Interval, math: Verdict, ctx: Verdict, impl: V
     else LinkStatus.Compatible
 
 object Procedure:
-  /** (14) Dom_1..n for any number of models, all converted to a common unit. */
+  /** (15) Dom_1..n for any number of models, all converted to a common unit. */
   def common(ctxs: Seq[Interval]): Interval = ctxs.reduce(_ intersect _)
 
-  /** (15) inclusion: the domain of some model equals the common domain; otherwise partial overlap or incompatibility. */
+  /** (16) inclusion: the domain of some model equals the common domain; otherwise partial overlap or incompatibility. */
   def classify(ctxs: Seq[Interval]): Overlap =
     val all = common(ctxs)
     if all.isEmpty then Overlap.Incompatible
     else if ctxs.exists(c => c.subsetOf(all)) then Overlap.Inclusion
     else Overlap.Partial
 
-  /** (16) κ = μ(Dom ∩ T) / μ(T) for intervals. */
+  /** (17) κ = μ(Dom ∩ T) / μ(T) for intervals. */
   def kappa(dom: Interval, target: Interval): Double = dom.intersect(target).length / target.length
 
-  /** Interval extension [f](D) for a function monotone on D, in either direction: exact, endpoints only.
+  /** Interval extension [f](X) for a function monotone on X, in either direction: exact, endpoints only.
     * A general [f] would need interval arithmetic or subdivision; the article's example is monotone. */
   def monotoneImage(f: Double => Double, d: Interval): Interval =
     val (a, b) = (f(d.lo), f(d.hi))
     Interval(math.min(a, b), math.max(a, b))
 
-  /** (17) with Y = [f_1](D) + [−δ, δ], checked against each level of the downstream input domain.
+  /** (19) with Y = [f_1](X) + [−δ, δ], checked against each level of the downstream input domain.
     * delta = None: no estimate of the upstream model error; δ = 0 is used and the link is at best Conditional. */
   def sequential(f: Double => Double, d: Interval, delta: Option[Double], next: Domain): LinkCheck =
     val y = monotoneImage(f, d).widen(delta.getOrElse(0.0))
     LinkCheck(y, Verdict.of(y.subsetOf(next.domM)), next.domC.fold(Verdict.NotCheckable)(c => Verdict.of(y.subsetOf(c))),
       Verdict.of(y.subsetOf(next.impl.range)), delta.isDefined)
 
-  /** D' = {x ∈ D : [f(x) − δ, f(x) + δ] ⊆ E}, E = Dom_M ∩ Dom_C ∩ [min Dom_I, max Dom_I] of the downstream input. */
+  /** X' = {x ∈ X : [f(x) − δ, f(x) + δ] ⊆ E}, E = Dom_M ∩ Dom_C ∩ [min Dom_I, max Dom_I] of the downstream input. */
   def sequentialPreimage(f: Double => Double, d: Interval, delta: Option[Double], next: Domain): Interval =
     val e = next.effective
     val dl = delta.getOrElse(0.0)
     monotonePreimage(f, d, Interval(e.lo + dl, e.hi - dl))
 
-  /** Preimage {x ∈ D : f(x) ∈ target} for f monotone on D, by bisection on both ends; a decreasing f is mirrored. */
+  /** Preimage {x ∈ X : f(x) ∈ target} for f monotone on X, by bisection on both ends; a decreasing f is mirrored. */
   def monotonePreimage(f: Double => Double, d: Interval, target: Interval, tol: Double = 1e-9): Interval =
     if f(d.lo) > f(d.hi) then increasingPreimage(x => -f(x), d, Interval(-target.hi, -target.lo), tol)
     else increasingPreimage(f, d, target, tol)
@@ -239,7 +239,7 @@ object Procedure:
         lo
     Interval(firstAtLeast(target.lo), lastAtMost(target.hi))
 
-  /** (6) |f(x) − f̂_N(x)| ≤ ε_out after the largest number of operations N allowed by IC.
+  /** (6) |f(x) − f̂_K(x)| ≤ ε_out after the largest number of operations K allowed by IC.
     * errorAfter(n) is the worst-case error of the result after n operations, non-decreasing in n,
     * so checking n = N covers every shorter run. */
   def resultPrecision(errorAfter: Long => Double, nMax: Long, epsOut: Double): Boolean =

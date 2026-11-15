@@ -2,7 +2,7 @@ package reconcile
 
 import ImplType.*
 
-/** Every number of section 5.4 and Table 3, recomputed. */
+/** Every number of section 5.4 and Table 4, recomputed. */
 class ExampleSuite extends munit.FunSuite:
   val r = Example.run()
   val tol = 0.005
@@ -17,7 +17,7 @@ class ExampleSuite extends munit.FunSuite:
     assertEquals(r.overlap, Overlap.Partial)
     assertEqualsDouble(r.kappaParallel, 50.0 / 90, 1e-9)
 
-  test("step 5, sequential M2 → M4: Y = [2.52, 10.73] kW; (17) holds for Dom_M and Dom_I, fails for Dom_C"):
+  test("step 5, sequential M2 → M4: Y = [2.52, 10.73] kW; (19) holds for Dom_M and Dom_I, fails for Dom_C"):
     assertEqualsDouble(r.link.image.lo, 2.52, tol)
     assertEqualsDouble(r.link.image.hi, 10.73, tol)
     assertEquals(r.link.math, Verdict.Holds)
@@ -25,7 +25,7 @@ class ExampleSuite extends munit.FunSuite:
     assertEquals(r.link.impl, Verdict.Holds)
     assertEquals(r.link.status, LinkStatus.Violated)
 
-  test("step 5, sequential: preimage D' ≈ [61.3, 90] km/h, kappa ≈ 0.32"):
+  test("step 5, sequential: preimage X' ≈ [61.3, 90] km/h, kappa ≈ 0.32"):
     assertEqualsDouble(r.reconciled.lo, 61.3, 0.05)
     assertEqualsDouble(r.reconciled.hi, 90, 1e-9)
     assertEqualsDouble(r.kappa, 0.32, tol)
@@ -38,7 +38,7 @@ class ExampleSuite extends munit.FunSuite:
     assertEqualsDouble(Example.roadLoadOverestimate(1.058, 40 / 3.6), 0.031, 0.005)
     assertEqualsDouble(Example.roadLoadKw(130 / 3.6), 25.4, 0.05)
 
-  test("ρ = 1.058 in step 5: Y = [2.44, 9.87] kW, preimage D' ≈ [63.3, 90] km/h, kappa ≈ 0.297"):
+  test("ρ = 1.058 in step 5: Y = [2.44, 9.87] kW, preimage X' ≈ [63.3, 90] km/h, kappa ≈ 0.297"):
     val h = Example.run(1.058)
     assertEqualsDouble(h.link.image.lo, 2.44, tol)
     assertEqualsDouble(h.link.image.hi, 9.87, tol)
@@ -48,7 +48,7 @@ class ExampleSuite extends munit.FunSuite:
 
   test("(6) on an accumulating computation: Patriot clock, 0.1 s chopped to 23 fraction bits"):
     // Illustrative ε_out = 0.01 s. The error of one tick is what the register loses on 0.1;
-    // (6) is applied after the largest number of ticks N that the context allows.
+    // (6) is applied after the largest number of ticks K that the context allows.
     val tick = 0.1 - FixedPoint(24, 23).nearest(0.1)
     assertEqualsDouble(tick, 9.54e-8, 1e-10)
     def drift(ticks: Long) = tick * ticks
@@ -59,7 +59,7 @@ class ExampleSuite extends munit.FunSuite:
     // (5) for the input 0.1 itself holds with any sensible ε_in: one tick loses < 1e-7 s.
     assert(FixedPoint(24, 23).maxRepError(Interval(0.1, 0.1)) < 1e-7)
 
-/** Conditions (3), exact (5), (11), step 6, per-level (17) with δ, (15) for n models, κ under unit change. */
+/** Conditions (3), exact (5), (11), step 6, per-level (19) with δ, (16) for n models, κ under unit change. */
 class ChecksSuite extends munit.FunSuite:
 
   test("(3): 1/x with Dom_M = (0, ∞) – (2) holds, but chopping to 23 fraction bits sends 1e-9 to 0"):
@@ -99,7 +99,7 @@ class ChecksSuite extends munit.FunSuite:
     assert(compatible.conflicts.isEmpty)
     assertEqualsDouble(compatible.ic.theta.head.dom.domC.get.lo, 1.2, 0)
 
-  test("(17) with δ > 0: the image widens and the preimage shrinks"):
+  test("(19) with δ > 0: the image widens and the preimage shrinks"):
     val f2Kmh: Double => Double = v => Example.roadLoadKw(v / 3.6)
     val d = Interval(40, 90)
     val l = Procedure.sequential(f2Kmh, d, Some(0.5), Example.m4.in.dom)
@@ -108,7 +108,7 @@ class ChecksSuite extends munit.FunSuite:
     val p1 = Procedure.sequentialPreimage(f2Kmh, d, Some(0.5), Example.m4.in.dom)
     assert(p1.lo > p0.lo)
 
-  test("(17), third inclusion – the Ariane 501 link: BH (float64) into the 16-bit integer conversion overflows"):
+  test("(19), third inclusion – the Ariane 501 link: BH (float64) into the 16-bit integer conversion overflows"):
     // M1 = SRI alignment function, output BH (float64); M2 = conversion of BH to int16. The trajectory only
     // supplies M1's input, it is not a link. The inquiry report gives no BH values, so the image [0, 40000]
     // is illustrative; only the fact Y ⊄ [−32768, 32767] is from the report. Dom_C of the conversion
@@ -120,12 +120,12 @@ class ChecksSuite extends munit.FunSuite:
     assertEquals(l.impl, Verdict.Violated)
     assertEquals(l.status, LinkStatus.Violated)
 
-  test("(15) for n models: inclusion when one domain lies in all others"):
+  test("(16) for n models: inclusion when one domain lies in all others"):
     assertEquals(Procedure.classify(Seq(Interval(0, 10), Interval(2, 8), Interval(1, 9))), Overlap.Inclusion)
     assertEquals(Procedure.classify(Seq(Interval(0, 10), Interval(5, 15), Interval(1, 9))), Overlap.Partial)
     assertEquals(Procedure.classify(Seq(Interval(0, 1), Interval(2, 3))), Overlap.Incompatible)
 
-  test("κ does not change under an affine change of units (12)"):
+  test("κ does not change under an affine change of units (13)"):
     val r = Example.run()
     val ms = Interval(r.reconciled.lo / 3.6, r.reconciled.hi / 3.6)
     val tMs = Interval(Example.target.lo / 3.6, Example.target.hi / 3.6)
@@ -141,7 +141,7 @@ class ChecksSuite extends munit.FunSuite:
 class VerdictSuite extends munit.FunSuite:
   val m4 = Example.m4.in.dom
 
-  test("(17) for a decreasing f: the image is not empty and the violation is reported"):
+  test("(19) for a decreasing f: the image is not empty and the violation is reported"):
     val l = Procedure.sequential(v => 1000 - v, Interval(0, 2000), Some(0.0), m4)
     assertEquals(l.image, Interval(-1000, 1000))
     assertEquals(l.math, Verdict.Holds) // Dom_M of M4 is ℝ (a polynomial); the old empty image passed every level
@@ -161,7 +161,7 @@ class VerdictSuite extends munit.FunSuite:
     assertEquals(l.status, LinkStatus.NotCheckable)
     assertEquals(code.mathAdmissible, Verdict.NotCheckable)
 
-  test("unknown δ: a link that passes (17) is only conditionally compatible"):
+  test("unknown δ: a link that passes (19) is only conditionally compatible"):
     val f: Double => Double = v => Example.roadLoadKw(v / 3.6)
     val d = Interval(70, 90)
     assertEquals(Procedure.sequential(f, d, None, m4).status, LinkStatus.Conditional)

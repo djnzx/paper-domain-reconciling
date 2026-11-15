@@ -53,7 +53,7 @@ object Example:
     Domain(Interval.Reals, Interval(5, 90), Float64, 0.01)), None,
     Context.text("warm engine", "steady state"), "engine fuel map", "author of M4")
 
-  /** δ of M2: no error estimate is given, so (17) uses δ = 0, a passing link would be only Conditional,
+  /** δ of M2: no error estimate is given, so (19) uses δ = 0, a passing link would be only Conditional,
     * and the assumption is recorded in IC of the integrated model. */
   val deltaM2: Option[Double] = None
 
@@ -66,9 +66,9 @@ object Example:
   def run(rhoActual: Double = rho): Result =
     // Step 2: every Dom_C of a speed input in km/h.
     val ctxKmh = Seq(m1Fixed, m2, m3).map(_.in.ctxIn(KilometrePerHour))
-    // Step 5, parallel part: (14)–(16).
+    // Step 5, parallel part: (15)–(17).
     val parallel = Procedure.common(ctxKmh)
-    // Step 5, sequential link M2 → M4: (17) on the reconciled input domain D, per level of the M4 input.
+    // Step 5, sequential link M2 → M4: (19) on the reconciled input domain X, per level of the M4 input.
     val f2Kmh: Double => Double = vKmh => roadLoadKw(vKmh / 3.6, rhoActual)
     val link = Procedure.sequential(f2Kmh, parallel, deltaM2, m4.in.dom)
     val reconciled = if link.status != LinkStatus.Violated then parallel else Procedure.sequentialPreimage(f2Kmh, parallel, deltaM2, m4.in.dom)
@@ -81,13 +81,13 @@ object Example:
     val r = run()
     println(s"step 4, (4) for M1 with int8:  ${r.step4Signed}")
     println(s"step 4, (4) for M1 with uint8: ${r.step4Unsigned}")
-    println(s"step 5, (14) parallel domain:  ${r.parallel} km/h, ${r.overlap}")
-    println(f"step 5, (16) kappa parallel:   ${r.kappaParallel}%.3f")
-    println(s"step 5, (17) Y = [f2](D):      ${r.link.image} kW, Dom_M: ${r.link.math}, Dom_C: ${r.link.ctx}, Dom_I: ${r.link.impl}, link: ${r.link.status}")
-    println(s"step 5, preimage D':           ${r.reconciled} km/h")
-    println(f"step 5, (16) kappa with (17):  ${r.kappa}%.3f")
+    println(s"step 5, (15) parallel domain:  ${r.parallel} km/h, ${r.overlap}")
+    println(f"step 5, (17) kappa parallel:   ${r.kappaParallel}%.3f")
+    println(s"step 5, (19) Y = [f2](X):      ${r.link.image} kW, Dom_M: ${r.link.math}, Dom_C: ${r.link.ctx}, Dom_I: ${r.link.impl}, link: ${r.link.status}")
+    println(s"step 5, preimage X':           ${r.reconciled} km/h")
+    println(f"step 5, (17) kappa with (19):  ${r.kappa}%.3f")
     println(s"IC_2, (11): Dom_C^rho = ${rhoDomain()} kg/m3; at 1500 m (rho = 1.058): ${m2.ic.check(Map("rho" -> Interval(1.058, 1.058)))}")
     println(f"IC_2 at 1500 m: aerodynamic drag overestimated by ${100 * dragOverestimate(1.058)}%.1f %%, road load at 90 km/h by ${100 * roadLoadOverestimate(1.058)}%.1f %%")
     val h = run(1.058)
-    println(s"step 5 at 1500 m: Y = ${h.link.image} kW, preimage D' = ${h.reconciled} km/h")
-    println(f"step 5 at 1500 m: (16) kappa with (17): ${h.kappa}%.3f")
+    println(s"step 5 at 1500 m: Y = ${h.link.image} kW, preimage X' = ${h.reconciled} km/h")
+    println(f"step 5 at 1500 m: (17) kappa with (19): ${h.kappa}%.3f")
